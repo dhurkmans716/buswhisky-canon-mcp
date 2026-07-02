@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 from urllib.request import urlopen, Request
 
 from fastmcp import FastMCP
-from fastmcp.server.dependencies import get_http_headers
+from fastmcp.server.dependencies import get_http_headers, get_http_request
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import JSONResponse
 
@@ -273,11 +273,25 @@ def _rank_sections(query_stems: List[str], sections: List[Dict[str, Any]]) -> Li
 # --------------------------------------------------------------------------- #
 
 def _auth_ok() -> bool:
-    """True als auth niet vereist is, of als het juiste Bearer-token is meegestuurd."""
+    """True als auth niet vereist is, of als het juiste Bearer-token is meegestuurd.
+
+    We lezen de Authorization-header uit de rauwe request; get_http_headers() filtert
+    die standaard weg (include_all=False), waardoor het token anders onzichtbaar is.
+    """
     if not BONNIE_AUTH_TOKEN:
         return True
-    headers = get_http_headers() or {}
-    auth = headers.get("authorization", "")
+    auth = ""
+    try:
+        req = get_http_request()
+        if req is not None:
+            auth = req.headers.get("authorization", "") or ""
+    except Exception:
+        auth = ""
+    if not auth:
+        try:
+            auth = (get_http_headers(include_all=True) or {}).get("authorization", "") or ""
+        except Exception:
+            auth = ""
     if isinstance(auth, str) and auth.lower().startswith("bearer "):
         return auth.split(" ", 1)[1].strip() == BONNIE_AUTH_TOKEN
     return False
