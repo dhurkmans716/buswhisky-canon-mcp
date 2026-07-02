@@ -1,0 +1,14 @@
+{
+  "mcp_servers": [
+    {
+      "url": "https://VERVANG-DOOR-JOUW-RAILWAY-DOMEIN/mcp",
+      "alias": "canon",
+      "type": "streamable_http",
+      "auth_token": "VERVANG-DOOR-HETZELFDE-TOKEN-ALS-BONNIE_AUTH_TOKEN",
+      "call-states": ["setup", "in-progress"],
+      "channels": ["phone", "whatsapp"],
+      "timeout-ms": 2500
+    }
+  ],
+  "mcp_global_timeout_ms": 15000
+}
