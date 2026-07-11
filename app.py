@@ -24,6 +24,7 @@ import os
 import re
 import time
 import threading
+import json
 from typing import Any, Dict, List, Optional
 from urllib.request import urlopen, Request
 
@@ -44,6 +45,12 @@ REFRESH_TTL_SECONDS = int(os.environ.get("CANON_REFRESH_TTL", "300"))
 BONNIE_AUTH_TOKEN = os.environ.get("BONNIE_AUTH_TOKEN", "").strip()
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 PORT = int(os.environ.get("PORT", "8080"))
+
+# n8n-webhook dat de beschikbaarheid van bedrijfsuitjes/activiteiten controleert.
+BESCHIKBAARHEID_URL = os.environ.get(
+    "BESCHIKBAARHEID_URL",
+    "https://buswhiskyevents.app.n8n.cloud/webhook/beschikbaarheid-check",
+)
 
 mcp = FastMCP("Bus Whisky Canon")
 
@@ -402,6 +409,53 @@ def kernfeiten() -> Dict[str, Any]:
         "email": _extract(r"E-mail:\s*(\S+)") or "info@buswhisky.com",
     }
     return {"prompt_variables": {k: v for k, v in variabelen.items() if v}}
+
+
+@mcp.tool(
+    meta={
+        "bonnie_feedback": [
+            "One moment, let me check availability for that date",
+            "Let me check that date for you",
+        ],
+        "bonnie_states": ["in-progress"],
+        "bonnie_channels": ["phone", "whatsapp"],
+    }
+)
+def check_beschikbaarheid(activiteit: str, datum: str, aantal_personen: str = "") -> Dict[str, Any]:
+    """Controleer LIVE of een bedrijfsuitje of activiteit (zoals de 4x4 Ecotrail) op een datum beschikbaar is.
+
+    Gebruik dit zodra een beller wil weten of een uitje/activiteit op een bepaalde datum vrij is.
+    Verzamel eerst kort: de activiteit, een concrete datum (bij voorkeur dd-mm-jjjj) en het aantal
+    personen. Verzin nooit zelf beschikbaarheid; leun op het resultaat van deze tool.
+
+    De tool geeft terug: `status` (BESCHIKBAAR / VOL / GEEN_ARRANGEMENT / DATUM_ONDUIDELIJK / ONBEKEND)
+    en een kant-en-klaar gesproken `antwoord`. Volg dat antwoord. Bij BESCHIKBAAR: bevestig stellig en
+    pak door naar een offerte op maat (verzamel aantal personen, e-mail, evt. bedrijfsnaam en telefoon).
+    """
+    if not _auth_ok():
+        return {"status": "ONBEKEND", "fout": "niet_geautoriseerd", "bericht": "Ongeldig of ontbrekend token."}
+    payload = json.dumps({
+        "activiteit": (activiteit or "").strip(),
+        "datum": (datum or "").strip(),
+        "aantal_personen": str(aantal_personen or "").strip(),
+    }).encode("utf-8")
+    req = Request(
+        BESCHIKBAARHEID_URL,
+        data=payload,
+        headers={"Content-Type": "application/json", "User-Agent": "buswhisky-canon-mcp"},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "status": "ONBEKEND",
+            "fout": "beschikbaarheid_service_onbereikbaar",
+            "bericht": str(exc)[:200],
+            "antwoord": "Dat kan ik nu even niet met zekerheid zeggen. Zal ik het laten navragen of alvast een offerte in gang zetten?",
+        }
+    return data
 
 
 # --------------------------------------------------------------------------- #
