@@ -414,23 +414,34 @@ def kernfeiten() -> Dict[str, Any]:
 @mcp.tool(
     meta={
         "bonnie_feedback": [
-            "One moment, let me check availability for that date",
-            "Let me check that date for you",
+            "Een moment, ik kijk die datum even voor je na",
+            "Ik check die datum meteen even voor je",
         ],
         "bonnie_states": ["in-progress"],
         "bonnie_channels": ["phone", "whatsapp"],
     }
 )
 def check_beschikbaarheid(activiteit: str, datum: str, aantal_personen: str = "") -> Dict[str, Any]:
-    """Controleer LIVE of een bedrijfsuitje of activiteit (zoals de 4x4 Ecotrail) op een datum beschikbaar is.
+    """Controleer LIVE of een datum vrij is voor een vergadering, bedrijfsuitje, activiteit of bruiloft.
 
-    Gebruik dit zodra een beller wil weten of een uitje/activiteit op een bepaalde datum vrij is.
-    Verzamel eerst kort: de activiteit, een concrete datum (bij voorkeur dd-mm-jjjj) en het aantal
-    personen. Verzin nooit zelf beschikbaarheid; leun op het resultaat van deze tool.
+    ROEP DEZE TOOL ALTIJD AAN zodra de beller een datum noemt, VOORDAT je een offerte, een
+    terugbelverzoek of welk vervolg dan ook toezegt. Dat geldt voor elke zakelijke aanvraag: een
+    dagvergadering of meeting, een 12-, 24-, 32-, 48- of 56-uurs arrangement, een teamdag of
+    heisessie, de 4x4 Ecotrail, kleiduifschieten, een ander groepsuitje of een bruiloft. Zeg nooit
+    uit jezelf of een datum kan of niet kan, en beloof nooit een offerte voordat je hebt gecheckt.
 
-    De tool geeft terug: `status` (BESCHIKBAAR / VOL / GEEN_ARRANGEMENT / DATUM_ONDUIDELIJK / ONBEKEND)
-    en een kant-en-klaar gesproken `antwoord`. Volg dat antwoord. Bij BESCHIKBAAR: bevestig stellig en
-    pak door naar een offerte op maat (verzamel aantal personen, e-mail, evt. bedrijfsnaam en telefoon).
+    Geef door: de activiteit in de woorden van de beller (bijvoorbeeld "dagvergadering",
+    "vergaderlocatie" of "4x4 Ecotrail"), de datum (bij voorkeur dd-mm-jjjj) en het aantal personen.
+    Weet de beller de datum nog niet, laat `datum` dan LEEG: de tool geeft dan de eerstvolgende
+    vrije datums terug.
+
+    De tool geeft terug: `status` (BESCHIKBAAR / VOL / TE_WEINIG_PLEK / VRIJE_DATUMS /
+    GEEN_VRIJE_DATUMS / GEEN_ARRANGEMENT / DATUM_ONDUIDELIJK / ONBEKEND), een kant-en-klaar gesproken
+    `antwoord` en zo nodig `alternatieve_datums`. Volg dat antwoord en noem datums letterlijk zoals
+    ze er staan; reken zelf geen weekdag of datum uit. Bij BESCHIKBAAR: bevestig stellig en pak door
+    naar een offerte op maat (aantal personen, e-mail, evt. bedrijfsnaam en telefoon). Bij VOL of
+    TE_WEINIG_PLEK: noem meteen de alternatieve datums en laat de beller nooit met alleen een nee
+    achter.
     """
     if not _auth_ok():
         return {"status": "ONBEKEND", "fout": "niet_geautoriseerd", "bericht": "Ongeldig of ontbrekend token."}
