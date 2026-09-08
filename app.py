@@ -311,8 +311,8 @@ def _auth_ok() -> bool:
 @mcp.tool(
     meta={
         "bonnie_feedback": [
-            "One moment, let me check that for you",
-            "Let me look that up in our information",
+            "Een moment, ik zoek het even voor je op",
+            "Ik kijk het meteen even na voor je",
         ],
         "bonnie_states": ["in-progress"],
         "bonnie_channels": ["phone", "whatsapp"],
@@ -359,7 +359,7 @@ def zoek_in_canon(vraag: str, max_resultaten: int = 3) -> Dict[str, Any]:
 
 @mcp.tool(
     meta={
-        "bonnie_feedback": ["One moment please"],
+        "bonnie_feedback": ["Een moment, ik zoek het even op"],
         "bonnie_states": ["in-progress"],
         "bonnie_channels": ["phone", "whatsapp"],
     }
@@ -421,7 +421,7 @@ def kernfeiten() -> Dict[str, Any]:
         "bonnie_channels": ["phone", "whatsapp"],
     }
 )
-def check_beschikbaarheid(activiteit: str, datum: str, aantal_personen: str = "") -> Dict[str, Any]:
+def check_beschikbaarheid(activiteit: str, datum: str = "", aantal_personen: str = "") -> Dict[str, Any]:
     """Controleer LIVE of een datum vrij is voor een vergadering, bedrijfsuitje, activiteit of bruiloft.
 
     ROEP DEZE TOOL ALTIJD AAN zodra de beller een datum noemt, VOORDAT je een offerte, een
