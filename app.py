@@ -276,6 +276,67 @@ def _rank_sections(query_stems: List[str], sections: List[Dict[str, Any]]) -> Li
 
 
 # --------------------------------------------------------------------------- #
+# Filtering en inkorten van zoekresultaten
+# --------------------------------------------------------------------------- #
+
+# Secties die ALLEEN over het gedrag van de bots gaan of interne werkdocumentatie
+# zijn. Een beller heeft er nooit iets aan, ze zijn samen goed voor meer dan de helft
+# van de canon en ze scoren makkelijk hoog omdat ze zo veel woorden bevatten.
+INTERNE_SECTIES = (
+    "10. taal & toon",
+    "10a.",
+    "10b.",
+    "6o.",
+    "website-leads",
+    "openstaande punten",
+)
+
+# Maximale lengte van een sectie in het antwoord. Een hele sectie kan 30.000 tekens
+# zijn; dat is te veel om aan de telefoon doorheen te lezen en het maakt elke
+# volgende beurt van het gesprek trager.
+MAX_SECTIE_TEKENS = 3500
+
+
+def _is_intern(titel: str) -> bool:
+    t = (titel or "").strip().lower()
+    return any(t.startswith(p) for p in INTERNE_SECTIES)
+
+
+def _knip(inhoud: str, query_stems: List[str], limiet: int = MAX_SECTIE_TEKENS) -> str:
+    """Geef het best passende aaneengesloten stuk van een lange sectie terug.
+
+    Scoort per regel hoeveel zoekstammen erin voorkomen en kiest het venster met de
+    hoogste score. Zo krijgt de beller het antwoord en niet de hele sectie.
+    """
+    if len(inhoud) <= limiet:
+        return inhoud
+    regels = inhoud.splitlines()
+    scores = []
+    for r in regels:
+        rs = _stem_set(r)
+        rl = r.lower()
+        n = 0
+        for qs in query_stems:
+            if qs in rs or (len(qs) >= 4 and qs in rl):
+                n += 1
+        scores.append(n)
+    beste_start, beste_score, beste_eind = 0, -1, 0
+    for i in range(len(regels)):
+        lengte, score, j = 0, 0, i
+        while j < len(regels) and lengte + len(regels[j]) + 1 <= limiet:
+            lengte += len(regels[j]) + 1
+            score += scores[j]
+            j += 1
+        if score > beste_score:
+            beste_start, beste_score, beste_eind = i, score, j
+        if j >= len(regels):
+            break
+    stuk = chr(10).join(regels[beste_start:beste_eind]).strip()
+    voor = "(fragment uit deze sectie) " if beste_start > 0 else ""
+    return voor + stuk
+
+
+# --------------------------------------------------------------------------- #
 # Auth-helper (optioneel)
 # --------------------------------------------------------------------------- #
 
@@ -336,13 +397,23 @@ def zoek_in_canon(vraag: str, max_resultaten: int = 3) -> Dict[str, Any]:
         return {"fout": "canon_niet_beschikbaar", "bericht": "De canon kon niet worden geladen."}
 
     query_stems = _query_stems(vraag)
-    ranked = _rank_sections(query_stems, sections)
+    zoekbaar = [s for s in sections if not _is_intern(s["titel"])]
+    ranked = _rank_sections(query_stems, zoekbaar)
 
     max_resultaten = max(1, min(int(max_resultaten or 3), 5))
     top = ranked[:max_resultaten]
+    # Alleen secties die er echt toe doen: valt een sectie ver onder de beste
+    # treffer, dan is het ruis en houden we het antwoord kort.
+    if top:
+        drempel = top[0][0] * 0.4
+        top = [t for t in top if t[0] >= drempel]
 
     resultaten = [
-        {"titel": s["titel"], "inhoud": s["inhoud"], "score": round(score, 1)}
+        {
+            "titel": s["titel"],
+            "inhoud": _knip(s["inhoud"], query_stems),
+            "score": round(score, 1),
+        }
         for score, s in top
     ]
 
